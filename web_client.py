@@ -8,9 +8,10 @@
     @copyright: 2016 by MOEX
 """
 
-import urllib2
+import urllib.request, urllib.parse, urllib.error
 import base64
-import cookielib
+import codecs
+import http.cookiejar
 import json
 
 
@@ -38,23 +39,21 @@ class MicexAuth:
 
     def __init__(self, config):
         self.config = config
-        self.cookie_jar = cookielib.CookieJar()
+        self.cookie_jar = http.cookiejar.MozillaCookieJar()
         self.auth()
 
     def auth(self):
         """ one attempt to authenticate
         """
         # opener for https authorization
-        if self.config.proxy_url:
-            opener = urllib2.build_opener(urllib2.ProxyHandler({"http": self.config.proxy_url}),
-                                          urllib2.HTTPCookieProcessor(self.cookie_jar),
-                                          urllib2.HTTPHandler(debuglevel=self.config.debug_level))
-        else:
-            opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cookie_jar),
-                                          urllib2.HTTPHandler(debuglevel=self.config.debug_level))
-        opener.addheaders = [('Authorization',
-                              'Basic %s' % base64.encodestring(self.config.user + ':' + self.config.password)[:-1])]
-        get_cert = opener.open(self.config.auth_url)
+        handler = urllib.request.HTTPCookieProcessor(self.cookie_jar)
+        opener = urllib.request.build_opener(handler)
+        request = urllib.request.Request(self.config.auth_url)
+        credentials = ('%s:%s' % (self.config.user, self.config.password))
+        encoded_credentials = base64.b64encode(credentials.encode('ascii'))
+        request.add_header('Authorization', 'Basic %s' % encoded_credentials.decode("ascii"))
+        #request.addheaders = [('Authorization', 'Basic %s' % base64.b64encode(bytes('sergey.rush@hotmail.com:4B7TfwLX', 'utf-8')))]
+        get_cert = opener.open(request)
 
         # we only need a cookie with MOEX Passport (certificate)
         self.passport = None
@@ -63,7 +62,7 @@ class MicexAuth:
                 self.passport = cookie
                 break
         if self.passport is None:
-            print "Cookie not found!"
+            print ("Cookie not found!")
 
     def is_real_time(self):
         """ repeat auth request if failed last time or cookie expired
@@ -105,13 +104,13 @@ class MicexISSClient:
             containet: user's container class
         """
         if config.proxy_url:
-            self.opener = urllib2.build_opener(urllib2.ProxyHandler({"http": config.proxy_url}),
-                                               urllib2.HTTPCookieProcessor(auth.cookie_jar),
-                                               urllib2.HTTPHandler(debuglevel=config.debug_level))
+            self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({"http": config.proxy_url}),
+                                               urllib.request.HTTPCookieProcessor(auth.cookie_jar),
+                                               urllib.request.HTTPHandler(debuglevel=config.debug_level))
         else:
-            self.opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(auth.cookie_jar),
-                                               urllib2.HTTPHandler(debuglevel=config.debug_level))
-        urllib2.install_opener(self.opener)
+            self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(auth.cookie_jar),
+                                               urllib.request.HTTPHandler(debuglevel=config.debug_level))
+        urllib.request.install_opener(self.opener)
         self.handler = handler(container)
 
     def get_history_securities(self, engine, market, board, date):
@@ -124,11 +123,14 @@ class MicexISSClient:
                                           'date': date}
 
         # always remember about the 'start' argument to get long replies
+        reader = codecs.getreader("utf-8")
         start = 0
         cnt = 1
         while cnt > 0:
             res = self.opener.open(url + '&start=' + str(start))
-            jres = json.load(res)
+            jres = json.load(reader(res))
+            with open('data'+ str(start) +'.json', 'w') as outfile:
+                json.dump(jres, outfile, ensure_ascii=False)
 
             # the following is also just a simple example
             # it is recommended to keep metadata separately

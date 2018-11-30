@@ -13,10 +13,11 @@
 """
 
 import sys
-from iss_simple_client import Config
-from iss_simple_client import MicexAuth
-from iss_simple_client import MicexISSClient
-from iss_simple_client import MicexISSDataHandler
+import traceback
+from web_client import Config
+from web_client import MicexAuth
+from web_client import MicexISSClient
+from web_client import MicexISSDataHandler
 
 
 class MyData:
@@ -28,12 +29,12 @@ class MyData:
         self.history = []
 
     def print_history(self):
-        print "=" * 49
-        print "|%15s|%15s|%15s|" % ("SECID", "CLOSE", "TRADES")
-        print "=" * 49
+        print ("=" * 49)
+        print ("|%15s|%15s|%15s|" % ("SECID", "CLOSE", "TRADES"))
+        print ("=" * 49)
         for sec in self.history:
-            print "|%15s|%15.2f|%15d|" % (sec[0], sec[1], sec[2])
-        print "=" * 49
+            print ("|%15s|%15.2f|%15d|" % (sec[0], sec[1], sec[2]))
+        print ("=" * 49)
 
 
 class MyDataHandler(MicexISSDataHandler):
@@ -48,7 +49,7 @@ class MyDataHandler(MicexISSDataHandler):
 
 
 def main():
-    my_config = Config(user='username', password='password', proxy_url='')
+    my_config = Config(user='sergey.rush@hotmail.com', password='4B7TfwLX', proxy_url='')
     my_auth = MicexAuth(my_config)
     if my_auth.is_real_time():
         iss = MicexISSClient(my_config, my_auth, MyDataHandler, MyData)
@@ -61,5 +62,6 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except:
-        print "Sorry:", sys.exc_type, ":", sys.exc_value
+    except Exception as e:
+        print("type error: " + str(e))
+        print(traceback.format_exc())
